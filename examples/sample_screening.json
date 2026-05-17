@@ -1,0 +1,39 @@
+{
+  "ideas": [
+    {
+      "name": "AgriSense advisory",
+      "monetary_impact": 5000000, "adoption": 0.4,
+      "business_critical": 0.8, "ownership": 1,
+      "risk_pos": 0.5, "time_of_replacement_yrs": 4,
+      "time_to_commercialize_yrs": 1.5, "cost_to_develop": 400000
+    },
+    {
+      "name": "Soil-sensor hardware",
+      "monetary_impact": 2000000, "adoption": 0.3,
+      "business_critical": 0.5, "ownership": 1,
+      "risk_pos": 0.4, "time_of_replacement_yrs": 5,
+      "time_to_commercialize_yrs": 2.5, "cost_to_develop": 900000
+    },
+    {
+      "name": "FPO marketplace",
+      "monetary_impact": 12000000, "adoption": 0.15,
+      "business_critical": 0.6, "ownership": 1,
+      "risk_pos": 0.3, "time_of_replacement_yrs": 2,
+      "time_to_commercialize_yrs": 2, "cost_to_develop": 700000
+    },
+    {
+      "name": "Patent licensing (yield model)",
+      "monetary_impact": 800000, "adoption": 1.0,
+      "business_critical": 0.4, "ownership": 1,
+      "risk_pos": 0.6, "time_of_replacement_yrs": 8,
+      "time_to_commercialize_yrs": 0.5, "cost_to_develop": 80000
+    },
+    {
+      "name": "WhatsApp pest-alert bot",
+      "monetary_impact": 600000, "adoption": 0.7,
+      "business_critical": 0.6, "ownership": 1,
+      "risk_pos": 0.7, "time_of_replacement_yrs": 1.5,
+      "time_to_commercialize_yrs": 0.3, "cost_to_develop": 40000
+    }
+  ]
+}

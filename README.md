@@ -1,5 +1,7 @@
 # idea-evaluator
 
+![demo](docs/demo.gif)
+
 CLI + interactive xlsx for evaluating business ideas end-to-end:
 
 - **Screen** a portfolio of ideas via Modified RICE, WSJF, CD3, EMV

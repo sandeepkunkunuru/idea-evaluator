@@ -375,8 +375,7 @@ def write_workbook(inputs: Dict, results: Dict, path: str) -> None:
     for i in range(1, eq.N_FOUNDERS + 1):
         r = 4 + i
         keys = eq.founder_field_keys(i)
-        eqs.cell(row=r, column=1, value=f"={nm(keys['name'])}") \
-            if False else eqs.cell(row=r, column=1, value=inputs.get(keys['name']))
+        eqs.cell(row=r, column=1, value=f"={addr_for_key[keys['name']]}")
         eqs.cell(row=r, column=2, value=f"={nm(keys['time_pct'])}").number_format = "0%"
         eqs.cell(row=r, column=3, value=f"={nm(keys['salary_forgone'])}").number_format = "#,##0"
         eqs.cell(row=r, column=4, value=f"={nm(keys['capital_usd'])}").number_format = "#,##0"

@@ -3,7 +3,15 @@
 Every numeric input lives on the `Inputs` sheet with a defined name. All
 downstream sheets (Scorecard, Org, Valuation_*) reference those named ranges
 via Excel formulas, so editing an input recomputes the workbook.
+
+After openpyxl writes the file, we post-process it to embed cached values
+for every formula cell (openpyxl never evaluates). Without this, Apple
+Numbers, Google Sheets import, and some older Excel versions show blank
+cells until the user manually re-enters every formula.
 """
+import io
+import re
+import zipfile
 from typing import Dict, List
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -11,6 +19,130 @@ from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.utils import get_column_letter
 
 from . import schema, rubric as rb, org as org_mod, screening as sc_mod, definitions as defs, equity as eq
+
+
+def _embed_cached_values(path: str) -> None:
+    """Use the `formulas` package to evaluate every formula in the workbook,
+    then rewrite each sheet's XML to embed the result inside <v>...</v>.
+
+    Robust to apps that don't honor fullCalcOnLoad (Apple Numbers, Google
+    Sheets import, etc.). If `formulas` isn't installed or a sheet can't
+    be evaluated, we leave the file untouched — Excel will still recompute.
+    """
+    try:
+        import formulas  # type: ignore
+    except Exception:
+        return
+
+    try:
+        xl = formulas.ExcelModel().loads(path).finish()
+        sol = xl.calculate()
+    except Exception as e:
+        print(f"  [warn] formula precompute skipped: {e}")
+        return
+
+    # Build (sheet_upper, coord) -> str(value) map
+    key_re = re.compile(r"'\[[^\]]+\](?P<sheet>[^']+)'!(?P<coord>[A-Z]+\d+)$")
+    computed: Dict[tuple, str] = {}
+    for k, v in sol.items():
+        m = key_re.match(k)
+        if not m:
+            continue
+        try:
+            val = v.value
+        except AttributeError:
+            continue
+        # v.value is typically a 2D numpy Array like [[42.5]]; flatten to scalar.
+        try:
+            import numpy as np
+            arr = np.asarray(val).flatten()
+            if arr.size == 0:
+                continue
+            scalar = arr[0]
+            if hasattr(scalar, "item"):
+                scalar = scalar.item()
+        except Exception:
+            scalar = val
+            while isinstance(scalar, (list, tuple)) and len(scalar) == 1:
+                scalar = scalar[0]
+        if scalar is None:
+            continue
+        if isinstance(scalar, bool):
+            text = "1" if scalar else "0"
+            attr = ' t="b"'
+        elif isinstance(scalar, (int, float)):
+            if scalar != scalar:  # NaN
+                continue
+            text = f"{scalar:.10g}"
+            attr = ""
+        elif isinstance(scalar, str):
+            if not scalar:
+                continue
+            # XML-escape and wrap as inline string result of a formula
+            text = (scalar.replace("&", "&amp;").replace("<", "&lt;")
+                          .replace(">", "&gt;"))
+            attr = ' t="str"'
+        else:
+            continue
+        computed[(m.group("sheet").upper(), m.group("coord"))] = (text, attr)
+
+    if not computed:
+        return
+
+    # Read the xlsx, patch each sheet XML to inject <v> values
+    with zipfile.ZipFile(path, "r") as zin:
+        members = {n: zin.read(n) for n in zin.namelist()}
+
+    # Map sheet XML files -> sheet name via workbook.xml + rels
+    wbxml = members["xl/workbook.xml"].decode()
+    sheets = re.findall(
+        r'<sheet[^>]*name="(?P<n>[^"]+)"[^>]*r:id="(?P<rid>rId\d+)"', wbxml)
+    relsxml = members["xl/_rels/workbook.xml.rels"].decode()
+    rel_map: Dict[str, str] = {}
+    for rel in re.findall(r'<Relationship\b[^>]*?/>', relsxml):
+        rid_m = re.search(r'Id="(rId\d+)"', rel)
+        tgt_m = re.search(r'Target="([^"]+)"', rel)
+        if rid_m and tgt_m and "worksheets/sheet" in tgt_m.group(1):
+            tgt = tgt_m.group(1).lstrip("/")
+            if tgt.startswith("xl/"):
+                tgt = tgt[3:]
+            rel_map[rid_m.group(1)] = tgt
+
+    cell_re = re.compile(
+        r'(<c r="(?P<coord>[A-Z]+\d+)"(?P<attrs>[^/>]*)>)'
+        r'(?P<inner><f[^>]*>[^<]*</f>)(?:<v[^>]*>[^<]*</v>)?'
+        r'(?P<close></c>)')
+
+    for sheet_name, rid in sheets:
+        target = rel_map.get(rid)
+        if not target:
+            continue
+        xml_path = "xl/" + target
+        xml = members[xml_path].decode()
+        sheet_key = sheet_name.upper()
+
+        def repl(m: re.Match) -> str:
+            coord = m.group("coord")
+            entry = computed.get((sheet_key, coord))
+            if not entry:
+                return m.group(0)
+            text, extra_attr = entry
+            opening = m.group(1)
+            # Inject t-attribute if needed (only for booleans)
+            if extra_attr and 't="' not in opening:
+                opening = opening[:-1] + extra_attr + ">"
+            return f'{opening}{m.group("inner")}<v>{text}</v>{m.group("close")}'
+
+        new_xml = cell_re.sub(repl, xml)
+        members[xml_path] = new_xml.encode()
+
+    # Write back
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name, data in members.items():
+            zout.writestr(name, data)
+    with open(path, "wb") as f:
+        f.write(buf.getvalue())
 
 
 HEADER = Font(bold=True, color="FFFFFF")
@@ -516,6 +648,7 @@ def write_workbook(inputs: Dict, results: Dict, path: str) -> None:
         rr += 1
 
     wb.save(path)
+    _embed_cached_values(path)
 
 
 # =========================================================================
@@ -565,3 +698,4 @@ def write_screening_workbook(scored_rows: list, path: str) -> None:
         rr += 1
 
     wb.save(path)
+    _embed_cached_values(path)

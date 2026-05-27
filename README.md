@@ -38,7 +38,25 @@ python cli.py --dump-template my_idea.json
 
 # Skip the Claude CLI call (rubric-only)
 python cli.py --input my.json --no-ai
+
+# Absorb an existing investor deck (.pptx) into JSON inputs
+python cli.py --from-pptx deck.pptx --to-json deck_inputs.json
+#   Deterministic regex pulls money/percent anchors (TAM, revenue, IRR,
+#   margins, ask). If `claude` is on PATH, an LLM pass fills the rest
+#   (problem, solution, ICP, rubric scores). Skip the LLM with --no-ai.
+
+# Produce an investor pitch deck (.pptx) alongside the xlsx
+python cli.py --input my.json --to-pptx pitch.pptx
+#   10-slide deck: Cover · Opportunity · Solution · Traction · 5-Yr
+#   Projections · Valuation (7 methods) · AI-Native Org · Equity ·
+#   Investment Ask · Closing.
+
+# Roundtrip: absorb a competitor deck and reproduce as your own
+python cli.py --from-pptx their_deck.pptx --to-pptx my_deck.pptx
 ```
+
+> .ppt (legacy binary, pre-2007) is not supported directly — convert first:
+> `soffice --headless --convert-to pptx your_deck.ppt` (requires LibreOffice).
 
 ## Workbook sheets
 

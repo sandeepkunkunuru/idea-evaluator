@@ -7,3 +7,9 @@ venv/
 *.swp
 .idea/
 .vscode/
+
+# Private / non-public artifacts — investor decks, advisor files, etc.
+private/
+*.ppt
+*.pptx
+!docs/template*.pptx

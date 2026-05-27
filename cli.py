@@ -15,6 +15,7 @@ from pathlib import Path
 
 from evaluator import schema, rubric, valuation, org, claude_client, screening, equity
 from evaluator.xlsx_writer import write_workbook, write_screening_workbook
+from evaluator import pptx_reader, pptx_writer
 
 
 def prompt_one(field: schema.Field, current):
@@ -125,6 +126,14 @@ def main():
                     help="Portfolio-screening mode: JSON list of ideas to rank")
     ap.add_argument("--screen-output", type=Path, default=Path("screening.xlsx"),
                     help="Output xlsx for --screen mode")
+    ap.add_argument("--from-pptx", type=Path,
+                    help="Absorb a .pptx pitch deck into a JSON inputs file "
+                         "(use with --to-json, or pipe into --input).")
+    ap.add_argument("--to-json", type=Path,
+                    help="With --from-pptx, where to write the extracted JSON.")
+    ap.add_argument("--to-pptx", type=Path,
+                    help="Also produce an investor pitch deck (.pptx) "
+                         "alongside the xlsx.")
     args = ap.parse_args()
 
     if args.dump_template:
@@ -134,6 +143,18 @@ def main():
     if args.screen:
         run_screen(args.screen, args.screen_output)
         return
+
+    if args.from_pptx:
+        print(f"Absorbing deck: {args.from_pptx}")
+        absorbed, diag = pptx_reader.absorb(
+            str(args.from_pptx), use_llm=not args.no_ai)
+        print(f"  slides={diag['slide_count']} "
+              f"anchors={diag['anchors_found']} llm={diag['llm_used']}")
+        out_json = args.to_json or args.from_pptx.with_suffix(".json")
+        out_json.write_text(json.dumps(absorbed, indent=2, default=str))
+        print(f"Wrote {out_json}")
+        if not args.input:
+            args.input = out_json
 
     if args.input:
         inputs = from_json(args.input)
@@ -163,10 +184,27 @@ def main():
         print("\n--- AI qualitative analysis ---\n")
         print(qualitative)
 
+    org_plan = org.generate(inputs)
     write_workbook(inputs, {"rubric": rb_res, "valuations": vals,
                             "qualitative": qualitative},
                    str(args.output))
     print(f"\nWorkbook written to {args.output}")
+
+    if args.to_pptx:
+        pptx_writer.write_deck(
+            inputs,
+            {
+                "rubric": rb_res,
+                "valuations": vals,
+                "org": org_plan,
+                "equity": {
+                    "founders": founders,
+                    "esop_pct": float(inputs.get("esop_pool_pct", 0.15)),
+                },
+            },
+            str(args.to_pptx),
+        )
+        print(f"Pitch deck written to {args.to_pptx}")
 
 
 if __name__ == "__main__":

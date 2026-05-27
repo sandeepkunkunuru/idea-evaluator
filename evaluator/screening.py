@@ -1,7 +1,7 @@
 """Portfolio-screening methods for ranking many ideas cheaply.
 
 Methods:
-  - Modified RICE  (from PatentValuationTool.xlsx — Samyama variant)
+  - Modified RICE  (Reach x Impact x Confidence / Effort, weighted variant)
   - WSJF          (Weighted Shortest Job First, SAFe)
   - CD3           (Cost of Delay / Duration, Reinertsen)
   - EMV           (Expected Monetary Value)

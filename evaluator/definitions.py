@@ -6,7 +6,7 @@ deep-evaluation dimensions correspond to RICE/WSJF/CD3/EMV concepts.
 """
 
 GLOSSARY = [
-    # --- Screening terms (from PatentValuationTool.xlsx + extensions) ---
+    # --- Screening terms (RICE family + extensions) ---
     ("Reach (RICE)", "How many customers a project will impact.",
      "Captured as Monetary impact × Adoption fraction."),
     ("Impact (RICE)", "How much a project shifts a strategic goal.",
